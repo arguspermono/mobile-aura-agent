@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../widgets/bottom_nav_bar.dart';
 import 'evidence_collection_screen.dart';
 
 class HubScreen extends StatefulWidget {
@@ -21,6 +22,8 @@ class _HubScreenState extends State<HubScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: backgroundColor,
+      extendBody: true,
+      bottomNavigationBar: const AuraBottomNavBar(currentIndex: 0),
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(kToolbarHeight),
         child: ClipRect(
@@ -76,7 +79,7 @@ class _HubScreenState extends State<HubScreen> {
       ),
       body: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.only(top: 32.0, left: 24.0, right: 24.0, bottom: 32.0),
+          padding: const EdgeInsets.only(top: 32.0, left: 24.0, right: 24.0, bottom: 120.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
