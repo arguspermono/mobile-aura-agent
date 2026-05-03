@@ -55,6 +55,8 @@ class _EvidenceCollectionScreenState extends State<EvidenceCollectionScreen> wit
                 const SizedBox(height: 32),
                 _buildUploadEvidenceZone(),
                 const SizedBox(height: 32),
+                _buildTextContext(),
+                const SizedBox(height: 32),
                 _buildVoiceContext(),
               ],
             ),
@@ -70,7 +72,7 @@ class _EvidenceCollectionScreenState extends State<EvidenceCollectionScreen> wit
       backgroundColor: backgroundColor,
       elevation: 0,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back, color: Colors.black87),
+        icon: Icon(Icons.arrow_back, color: primaryColor),
         onPressed: () => Navigator.of(context).pop(),
       ),
       centerTitle: true,
@@ -382,6 +384,52 @@ class _EvidenceCollectionScreenState extends State<EvidenceCollectionScreen> wit
                   ),
                 ),
               ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTextContext() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Text Context',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey.shade700,
+            fontFamily: 'Inter',
+          ),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey.shade300),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: TextField(
+            maxLines: 4,
+            decoration: InputDecoration(
+              hintText: 'Describe the issue...',
+              hintStyle: TextStyle(color: Colors.grey.shade400, fontFamily: 'Inter'),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.all(16),
+            ),
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.black87,
+              fontFamily: 'Inter',
             ),
           ),
         ),

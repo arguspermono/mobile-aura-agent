@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import 'final_decision_screen.dart';
 
 class AiAnalysisScreen extends StatefulWidget {
   const AiAnalysisScreen({super.key});
@@ -37,6 +38,15 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> with TickerProvider
       vsync: this,
       duration: const Duration(seconds: 2),
     )..repeat();
+
+    Future.delayed(const Duration(seconds: 4), () {
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const FinalDecisionScreen()),
+        );
+      }
+    });
   }
 
   @override
@@ -82,7 +92,7 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> with TickerProvider
       backgroundColor: backgroundColor,
       elevation: 0,
       leading: IconButton(
-        icon: Icon(Icons.signal_cellular_alt, color: primaryColor),
+        icon: Icon(Icons.arrow_back, color: primaryColor),
         onPressed: () => Navigator.of(context).pop(),
       ),
       centerTitle: true,
