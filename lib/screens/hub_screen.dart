@@ -23,6 +23,7 @@ class _HubScreenState extends State<HubScreen> {
     return Scaffold(
       backgroundColor: backgroundColor,
       extendBody: true,
+      extendBodyBehindAppBar: true,
       bottomNavigationBar: const AuraBottomNavBar(currentIndex: 0),
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(kToolbarHeight),
@@ -41,8 +42,6 @@ class _HubScreenState extends State<HubScreen> {
               ),
               title: Row(
                 children: [
-                  Icon(Icons.signal_cellular_alt, color: Colors.indigo.shade400, size: 24),
-                  const SizedBox(width: 8),
                   const Text(
                     'AURA AI',
                     style: TextStyle(
@@ -79,7 +78,12 @@ class _HubScreenState extends State<HubScreen> {
       ),
       body: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.only(top: 32.0, left: 24.0, right: 24.0, bottom: 120.0),
+          padding: EdgeInsets.only(
+            top: MediaQuery.of(context).padding.top + kToolbarHeight + 32.0,
+            left: 24.0,
+            right: 24.0,
+            bottom: 120.0,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

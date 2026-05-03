@@ -28,62 +28,9 @@ class AuraAgentApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const RoleSelectionScreen(),
+      home: const HubScreen(),
     );
   }
 }
 
-class RoleSelectionScreen extends StatelessWidget {
-  const RoleSelectionScreen({super.key});
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Aura-Agent Prototype'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.support_agent, size: 80, color: Colors.deepPurple),
-            const SizedBox(height: 20),
-            const Text(
-              'Autonomous Complaint Resolution',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 40),
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const HubScreen()),
-                );
-              },
-              icon: const Icon(Icons.person),
-              label: const Text('Customer Dashboard (Hub)'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-              ),
-            ),
-            const SizedBox(height: 20),
-            OutlinedButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const NotificationsScreen()),
-                );
-              },
-              icon: const Icon(Icons.notifications),
-              label: const Text('Notifications'),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

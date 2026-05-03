@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'ai_analysis_screen.dart';
+import 'hub_screen.dart';
 
 class EvidenceCollectionScreen extends StatefulWidget {
   const EvidenceCollectionScreen({super.key});
@@ -73,7 +74,16 @@ class _EvidenceCollectionScreenState extends State<EvidenceCollectionScreen> wit
       elevation: 0,
       leading: IconButton(
         icon: Icon(Icons.arrow_back, color: primaryColor),
-        onPressed: () => Navigator.of(context).pop(),
+        onPressed: () {
+          if (Navigator.canPop(context)) {
+            Navigator.of(context).pop();
+          } else {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const HubScreen()),
+            );
+          }
+        },
       ),
       centerTitle: true,
       title: Text(

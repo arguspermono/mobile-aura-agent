@@ -2,6 +2,7 @@ import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../widgets/bottom_nav_bar.dart';
+import 'hub_screen.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -27,6 +28,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return Scaffold(
       backgroundColor: backgroundColor,
       extendBody: true,
+      extendBodyBehindAppBar: true,
       bottomNavigationBar: const AuraBottomNavBar(currentIndex: 2),
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(kToolbarHeight),
@@ -45,8 +47,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               ),
               title: Row(
                 children: [
-                  Icon(Icons.signal_cellular_alt, color: Colors.indigo.shade400, size: 24),
-                  const SizedBox(width: 8),
                   const Text(
                     'AURA AI',
                     style: TextStyle(
@@ -79,7 +79,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               ],
               leading: IconButton(
                 icon: const Icon(Icons.arrow_back, color: Colors.white),
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () {
+                  if (Navigator.canPop(context)) {
+                    Navigator.of(context).pop();
+                  } else {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (_) => const HubScreen()),
+                    );
+                  }
+                },
               ),
             ),
           ),
@@ -87,7 +96,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       ),
       body: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.only(top: 32.0, left: 24.0, right: 24.0, bottom: 120.0),
+          padding: EdgeInsets.only(
+            top: MediaQuery.of(context).padding.top + kToolbarHeight + 32.0,
+            left: 24.0,
+            right: 24.0,
+            bottom: 120.0,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

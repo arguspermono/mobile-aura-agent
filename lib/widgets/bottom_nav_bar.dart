@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../screens/hub_screen.dart';
 import '../screens/notifications_screen.dart';
+import '../screens/evidence_collection_screen.dart';
 
 class AuraBottomNavBar extends StatelessWidget {
   final int currentIndex;
@@ -17,6 +18,14 @@ class AuraBottomNavBar extends StatelessWidget {
         context,
         PageRouteBuilder(
           pageBuilder: (_, __, ___) => const HubScreen(),
+          transitionDuration: Duration.zero,
+        ),
+      );
+    } else if (index == 1) {
+      Navigator.pushReplacement(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (_, __, ___) => const EvidenceCollectionScreen(),
           transitionDuration: Duration.zero,
         ),
       );
