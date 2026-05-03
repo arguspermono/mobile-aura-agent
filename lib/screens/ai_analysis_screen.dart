@@ -99,10 +99,10 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> with TickerProvider
         onPressed: () => Navigator.of(context).pop(),
       ),
       centerTitle: true,
-      title: const Text(
+      title: Text(
         'AURA AI',
         style: TextStyle(
-          color: Colors.black87,
+          color: primaryColor,
           fontWeight: FontWeight.w900,
           fontSize: 20,
           letterSpacing: 1.2,
@@ -112,16 +112,10 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> with TickerProvider
       actions: [
         Padding(
           padding: const EdgeInsets.only(right: 16.0),
-          child: Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.grey.shade300, width: 2),
-            ),
-            child: CircleAvatar(
-              backgroundColor: Colors.grey.shade200,
-              radius: 16,
-              backgroundImage: const NetworkImage('https://i.pravatar.cc/100'),
-            ),
+          child: CircleAvatar(
+            backgroundColor: Colors.grey.shade300,
+            radius: 18,
+            child: const Icon(Icons.person, color: Colors.white),
           ),
         ),
       ],

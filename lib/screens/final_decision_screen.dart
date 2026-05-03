@@ -91,10 +91,10 @@ class _FinalDecisionScreenState extends State<FinalDecisionScreen> with TickerPr
               onPressed: () => Navigator.of(context).pop(),
             ),
             centerTitle: true,
-            title: const Text(
+            title: Text(
               'AURA AI',
               style: TextStyle(
-                color: Colors.black87,
+                color: primaryColor,
                 fontWeight: FontWeight.w900,
                 fontSize: 20,
                 letterSpacing: 1.2,
@@ -104,16 +104,10 @@ class _FinalDecisionScreenState extends State<FinalDecisionScreen> with TickerPr
             actions: [
               Padding(
                 padding: const EdgeInsets.only(right: 16.0),
-                child: Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.grey.shade300, width: 1.5),
-                  ),
-                  child: CircleAvatar(
-                    backgroundColor: Colors.grey.shade100,
-                    radius: 16,
-                    child: const Icon(Icons.person, color: Colors.grey, size: 20),
-                  ),
+                child: CircleAvatar(
+                  backgroundColor: Colors.grey.shade300,
+                  radius: 18,
+                  child: const Icon(Icons.person, color: Colors.white),
                 ),
               ),
             ],

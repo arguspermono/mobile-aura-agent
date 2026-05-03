@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../widgets/bottom_nav_bar.dart';
 import 'evidence_collection_screen.dart';
+import 'notifications_screen.dart';
 
 class HubScreen extends StatefulWidget {
   const HubScreen({super.key});
@@ -23,62 +24,11 @@ class _HubScreenState extends State<HubScreen> {
     return Scaffold(
       backgroundColor: backgroundColor,
       extendBody: true,
-      extendBodyBehindAppBar: true,
       bottomNavigationBar: const AuraBottomNavBar(currentIndex: 0),
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(kToolbarHeight),
-        child: ClipRect(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: AppBar(
-              backgroundColor: const Color(0xFFF9F9FF).withValues(alpha: 0.8),
-              elevation: 0,
-              shadowColor: Colors.black12,
-              bottom: PreferredSize(
-                preferredSize: const Size.fromHeight(1.0),
-                child: Container(
-                  color: const Color(0xFFC7C4D7),
-                  height: 1.0,
-                ),
-              ),
-              leading: Padding(
-                padding: const EdgeInsets.only(left: 16.0),
-                child: Icon(Icons.signal_cellular_alt, color: primaryColor, size: 24),
-              ),
-              title: const Text(
-                'AURA AI',
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                  color: Color(0xFF111C2D),
-                  letterSpacing: 2.0,
-                ),
-              ),
-              centerTitle: true,
-              actions: [
-                Padding(
-                  padding: const EdgeInsets.only(right: 16.0),
-                  child: Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: const Color(0xFFE7EEFF),
-                      border: Border.all(color: const Color(0xFFC7C4D7), width: 1),
-                    ),
-                    child: const Icon(Icons.person, color: Color(0xFF595c5e), size: 18),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
       body: SingleChildScrollView(
         child: Padding(
           padding: EdgeInsets.only(
-            top: MediaQuery.of(context).padding.top + kToolbarHeight + 32.0,
+            top: MediaQuery.of(context).padding.top + 24.0,
             left: 24.0,
             right: 24.0,
             bottom: 120.0,
@@ -103,28 +53,92 @@ class _HubScreenState extends State<HubScreen> {
   }
 
   Widget _buildHeader() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text(
-          'DASHBOARD OVERVIEW',
-          style: TextStyle(
-            fontFamily: 'Inter',
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.5,
-            color: primaryColor,
-          ),
+        Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFFC7C4D7), width: 2),
+                color: const Color(0xFFE7EEFF),
+              ),
+              child: ClipOval(
+                child: Icon(Icons.person, color: primaryColor, size: 28),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'Good morning ',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 13,
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                    const Text('👋', style: TextStyle(fontSize: 13)),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  'Alex Johnson',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
-        const SizedBox(height: 8),
-        const Text(
-          'Good morning, Alex',
-          style: TextStyle(
-            fontFamily: 'Inter',
-            fontSize: 32,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-            height: 1.2,
+        GestureDetector(
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+          ),
+          child: Stack(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Icon(Icons.notifications_outlined, color: Colors.grey.shade700, size: 22),
+              ),
+              Positioned(
+                top: 6,
+                right: 6,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -133,52 +147,55 @@ class _HubScreenState extends State<HubScreen> {
 
   Widget _buildTotalClaimsCard() {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        gradient: const LinearGradient(
+          colors: [Color(0xFF6B4DE6), Color(0xFF8B5CF6)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.grey.shade300),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: const Color(0xFF6B4DE6).withValues(alpha: 0.35),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Row: label + badge
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
+              const Text(
                 'Total Claims Value',
                 style: TextStyle(
                   fontFamily: 'Inter',
-                  fontSize: 14,
+                  fontSize: 13,
                   fontWeight: FontWeight.w500,
-                  color: Colors.grey.shade600,
+                  color: Colors.white70,
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: accentGreen,
-                  borderRadius: BorderRadius.circular(16),
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                child: Row(
-                  children: const [
-                    Icon(Icons.trending_up, color: Colors.white, size: 14),
+                child: const Row(
+                  children: [
+                    Icon(Icons.trending_up, color: Color(0xFF4ADE80), size: 14),
                     SizedBox(width: 4),
                     Text(
-                      '+12.5%',
+                      '+112%',
                       style: TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                        letterSpacing: 0.5,
+                        color: Color(0xFF4ADE80),
                       ),
                     ),
                   ],
@@ -186,27 +203,77 @@ class _HubScreenState extends State<HubScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
+          // Main value
           const Text(
             '\$1,727',
             style: TextStyle(
               fontFamily: 'Inter',
-              fontSize: 40,
+              fontSize: 38,
               fontWeight: FontWeight.bold,
-              color: Colors.black87,
+              color: Colors.white,
               height: 1.1,
             ),
           ),
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            height: 80,
-            child: CustomPaint(
-              painter: ChartLinePainter(color: primaryColor),
+          const SizedBox(height: 20),
+          // 4-stat row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildStatItem('8', 'Total', Colors.white),
+              _buildStatItem('5', 'Approved', const Color(0xFF4ADE80)),
+              _buildStatItem('2', 'Processing', const Color(0xFFFB923C)),
+              _buildStatItem('1', 'Rejected', const Color(0xFFF87171)),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Progress bar
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: 0.62,
+              backgroundColor: Colors.white.withValues(alpha: 0.2),
+              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF4ADE80)),
+              minHeight: 6,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            '62% success rate this month',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 11,
+              color: Colors.white70,
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildStatItem(String value, String label, Color valueColor) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: valueColor,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: const TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 11,
+            color: Colors.white60,
+          ),
+        ),
+      ],
     );
   }
 
