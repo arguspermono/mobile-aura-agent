@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'final_decision_screen.dart';
+import '../widgets/bottom_nav_bar.dart';
 
 class AiAnalysisScreen extends StatefulWidget {
   const AiAnalysisScreen({super.key});
@@ -61,10 +62,12 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> with TickerProvider
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: backgroundColor,
+      extendBody: true,
       appBar: _buildAppBar(),
+      bottomNavigationBar: const AuraBottomNavBar(currentIndex: 1),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.only(left: 24.0, right: 24.0, top: 24.0, bottom: 120.0),
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 600),

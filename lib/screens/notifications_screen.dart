@@ -36,49 +36,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
             child: AppBar(
-              backgroundColor: darkHeader.withValues(alpha: 0.8),
+              backgroundColor: const Color(0xFFF9F9FF).withValues(alpha: 0.8),
               elevation: 0,
+              shadowColor: Colors.black12,
               bottom: PreferredSize(
                 preferredSize: const Size.fromHeight(1.0),
                 child: Container(
-                  color: Colors.white.withValues(alpha: 0.1),
+                  color: const Color(0xFFC7C4D7),
                   height: 1.0,
                 ),
               ),
-              title: Row(
-                children: [
-                  const Text(
-                    'AURA AI',
-                    style: TextStyle(
-                      fontFamily: 'Space Grotesk',
-                      fontWeight: FontWeight.bold,
-                      fontSize: 20,
-                      color: Colors.white,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                Padding(
-                  padding: const EdgeInsets.only(right: 16.0),
-                  child: Center(
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.indigo.shade500.withValues(alpha: 0.3), width: 2),
-                      ),
-                      child: ClipOval(
-                        child: Icon(Icons.person, color: Colors.white70),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
               leading: IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                icon: Icon(Icons.arrow_back, color: primaryColor),
                 onPressed: () {
                   if (Navigator.canPop(context)) {
                     Navigator.of(context).pop();
@@ -90,6 +59,32 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   }
                 },
               ),
+              title: const Text(
+                'AURA AI',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                  color: Color(0xFF111C2D),
+                  letterSpacing: 2.0,
+                ),
+              ),
+              centerTitle: true,
+              actions: [
+                Padding(
+                  padding: const EdgeInsets.only(right: 16.0),
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFFE7EEFF),
+                      border: Border.all(color: const Color(0xFFC7C4D7), width: 1),
+                    ),
+                    child: const Icon(Icons.person, color: Color(0xFF595c5e), size: 18),
+                  ),
+                ),
+              ],
             ),
           ),
         ),

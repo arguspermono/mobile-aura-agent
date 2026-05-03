@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'ai_analysis_screen.dart';
 import 'hub_screen.dart';
+import '../widgets/bottom_nav_bar.dart';
 
 class EvidenceCollectionScreen extends StatefulWidget {
   const EvidenceCollectionScreen({super.key});
@@ -42,11 +43,13 @@ class _EvidenceCollectionScreenState extends State<EvidenceCollectionScreen> wit
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: backgroundColor,
+      extendBody: true,
       appBar: _buildAppBar(),
+      bottomNavigationBar: const AuraBottomNavBar(currentIndex: 1),
       body: Stack(
         children: [
           SingleChildScrollView(
-            padding: const EdgeInsets.only(left: 24, right: 24, top: 16, bottom: 120),
+            padding: const EdgeInsets.only(left: 24, right: 24, top: 16, bottom: 200),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -525,7 +528,7 @@ class _EvidenceCollectionScreenState extends State<EvidenceCollectionScreen> wit
 
   Widget _buildBottomCTA() {
     return Positioned(
-      bottom: 0,
+      bottom: 80,
       left: 0,
       right: 0,
       child: Container(

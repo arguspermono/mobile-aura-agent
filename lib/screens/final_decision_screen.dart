@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../widgets/bottom_nav_bar.dart';
 
 class FinalDecisionScreen extends StatefulWidget {
   const FinalDecisionScreen({super.key});
@@ -43,11 +44,13 @@ class _FinalDecisionScreenState extends State<FinalDecisionScreen> with TickerPr
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: backgroundColor,
+      extendBody: true,
       extendBodyBehindAppBar: true,
       appBar: _buildAppBar(),
+      bottomNavigationBar: const AuraBottomNavBar(currentIndex: 1),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.only(left: 24.0, right: 24.0, top: 24.0, bottom: 120.0),
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 800),

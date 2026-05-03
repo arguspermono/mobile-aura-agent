@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/evidence_collection_screen.dart';
 import 'screens/hub_screen.dart';
-import 'screens/notifications_screen.dart';
 
 void main() {
   runApp(const AuraAgentApp());
