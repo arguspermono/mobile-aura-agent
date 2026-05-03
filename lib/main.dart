@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'screens/evidence_collection_screen.dart';
 import 'screens/hub_screen.dart';
+import 'screens/notifications_screen.dart';
 
 void main() {
   runApp(const AuraAgentApp());
@@ -71,11 +72,11 @@ class RoleSelectionScreen extends StatelessWidget {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const Scaffold(body: Center(child: Text('Seller Dashboard coming soon')))),
+                  MaterialPageRoute(builder: (context) => const NotificationsScreen()),
                 );
               },
-              icon: const Icon(Icons.dashboard),
-              label: const Text('Seller Dashboard (Review Decisions)'),
+              icon: const Icon(Icons.notifications),
+              label: const Text('Notifications'),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
               ),
