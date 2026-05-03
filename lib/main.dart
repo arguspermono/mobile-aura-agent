@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'screens/evidence_collection_screen.dart';
+import 'screens/hub_screen.dart';
 
 void main() {
   runApp(const AuraAgentApp());
@@ -56,11 +57,11 @@ class RoleSelectionScreen extends StatelessWidget {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const EvidenceCollectionScreen()),
+                  MaterialPageRoute(builder: (context) => const HubScreen()),
                 );
               },
               icon: const Icon(Icons.person),
-              label: const Text('Customer Portal (Upload Claim)'),
+              label: const Text('Customer Dashboard (Hub)'),
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
               ),
