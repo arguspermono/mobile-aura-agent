@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/customer_upload_screen.dart';
-import 'screens/seller_dashboard_screen.dart';
+import 'screens/evidence_collection_screen.dart';
 
 void main() {
   runApp(const AuraAgentApp());
@@ -57,7 +56,7 @@ class RoleSelectionScreen extends StatelessWidget {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const CustomerUploadScreen()),
+                  MaterialPageRoute(builder: (context) => const EvidenceCollectionScreen()),
                 );
               },
               icon: const Icon(Icons.person),
@@ -71,7 +70,7 @@ class RoleSelectionScreen extends StatelessWidget {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const SellerDashboardScreen()),
+                  MaterialPageRoute(builder: (context) => const Scaffold(body: Center(child: Text('Seller Dashboard coming soon')))),
                 );
               },
               icon: const Icon(Icons.dashboard),
