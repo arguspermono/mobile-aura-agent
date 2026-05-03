@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'ai_analysis_screen.dart';
 
 class EvidenceCollectionScreen extends StatefulWidget {
   const EvidenceCollectionScreen({super.key});
@@ -484,7 +485,12 @@ class _EvidenceCollectionScreenState extends State<EvidenceCollectionScreen> wit
           ),
         ),
         child: ElevatedButton(
-          onPressed: () {},
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const AiAnalysisScreen()),
+            );
+          },
           style: ElevatedButton.styleFrom(
             backgroundColor: primaryColor,
             shape: RoundedRectangleBorder(
