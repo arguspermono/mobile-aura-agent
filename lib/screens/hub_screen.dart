@@ -1,5 +1,7 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
+
+import '../models/claim_model.dart';
+import '../services/api_service.dart';
 import '../widgets/bottom_nav_bar.dart';
 import 'evidence_collection_screen.dart';
 import 'notifications_screen.dart';
@@ -12,12 +14,29 @@ class HubScreen extends StatefulWidget {
 }
 
 class _HubScreenState extends State<HubScreen> {
-  final Color primaryColor = const Color(0xFF4648d4);
-  final Color secondaryColor = const Color(0xFF006e2a);
-  final Color errorColor = const Color(0xFFba1a1a);
-  final Color accentGreen = const Color(0xFF00C853);
+  static const String demoUserId = 'demo-user-001';
+
+  final _apiService = ApiService();
+  late Future<List<ClaimModel>> _claimsFuture;
+
+  final Color primaryColor = const Color(0xFF4648D4);
+  final Color secondaryColor = const Color(0xFF006E2A);
+  final Color errorColor = const Color(0xFFB3261E);
+  final Color warningColor = const Color(0xFFF59E0B);
   final Color backgroundColor = const Color(0xFFF9F9FF);
-  final Color darkHeader = const Color(0xFF121212);
+
+  @override
+  void initState() {
+    super.initState();
+    _claimsFuture = _apiService.listClaims(userId: demoUserId);
+  }
+
+  Future<void> _refreshClaims() async {
+    setState(() {
+      _claimsFuture = _apiService.listClaims(userId: demoUserId);
+    });
+    await _claimsFuture;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,28 +44,32 @@ class _HubScreenState extends State<HubScreen> {
       backgroundColor: backgroundColor,
       extendBody: true,
       bottomNavigationBar: const AuraBottomNavBar(currentIndex: 0),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: EdgeInsets.only(
-            top: MediaQuery.of(context).padding.top + 24.0,
-            left: 24.0,
-            right: 24.0,
-            bottom: 120.0,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(),
-              const SizedBox(height: 32),
-              _buildTotalClaimsCard(),
-              const SizedBox(height: 32),
-              _buildCreateClaimCTA(context),
-              const SizedBox(height: 32),
-              _buildRecentClaims(),
-              const SizedBox(height: 32),
-              _buildAuraTipCard(),
-            ],
-          ),
+      body: RefreshIndicator(
+        onRefresh: _refreshClaims,
+        child: FutureBuilder<List<ClaimModel>>(
+          future: _claimsFuture,
+          builder: (context, snapshot) {
+            final claims = snapshot.data ?? const <ClaimModel>[];
+            return ListView(
+              padding: EdgeInsets.only(
+                top: MediaQuery.of(context).padding.top + 24,
+                left: 24,
+                right: 24,
+                bottom: 120,
+              ),
+              children: [
+                _buildHeader(),
+                const SizedBox(height: 32),
+                _buildTotalClaimsCard(claims),
+                const SizedBox(height: 32),
+                _buildCreateClaimCTA(context),
+                const SizedBox(height: 32),
+                _buildRecentClaims(snapshot),
+                const SizedBox(height: 32),
+                _buildAuraTipCard(),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -55,7 +78,6 @@ class _HubScreenState extends State<HubScreen> {
   Widget _buildHeader() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Row(
           children: [
@@ -67,31 +89,23 @@ class _HubScreenState extends State<HubScreen> {
                 border: Border.all(color: const Color(0xFFC7C4D7), width: 2),
                 color: const Color(0xFFE7EEFF),
               ),
-              child: ClipOval(
-                child: Icon(Icons.person, color: primaryColor, size: 28),
-              ),
+              child: Icon(Icons.person, color: primaryColor, size: 28),
             ),
             const SizedBox(width: 12),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Text(
-                      'Good morning ',
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 13,
-                        color: Colors.grey.shade600,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                    const Text('👋', style: TextStyle(fontSize: 13)),
-                  ],
+                Text(
+                  'Welcome back',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 13,
+                    color: Colors.grey.shade600,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 const Text(
-                  'Alex Johnson',
+                  'Aura Demo User',
                   style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 18,
@@ -103,49 +117,26 @@ class _HubScreenState extends State<HubScreen> {
             ),
           ],
         ),
-        GestureDetector(
-          onTap: () => Navigator.push(
+        IconButton(
+          onPressed: () => Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const NotificationsScreen()),
           ),
-          child: Stack(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Icon(Icons.notifications_outlined, color: Colors.grey.shade700, size: 22),
-              ),
-              Positioned(
-                top: 6,
-                right: 6,
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    color: Colors.red,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-            ],
-          ),
+          icon: Icon(Icons.notifications_outlined, color: Colors.grey.shade700),
         ),
       ],
     );
   }
 
-  Widget _buildTotalClaimsCard() {
+  Widget _buildTotalClaimsCard(List<ClaimModel> claims) {
+    final approvedCount = claims.where((claim) => claim.status == 'APPROVED').length;
+    final processingCount = claims.where((claim) => claim.status == 'PROCESSING').length;
+    final rejectedCount = claims.where((claim) => claim.status == 'REJECTED').length;
+    final totalValue = claims.fold<int>(
+      0,
+      (sum, claim) => sum + (claim.decisionResult?.refundValue ?? 0),
+    );
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -155,96 +146,38 @@ class _HubScreenState extends State<HubScreen> {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF6B4DE6).withValues(alpha: 0.35),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Row: label + badge
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Total Claims Value',
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.white70,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.trending_up, color: Color(0xFF4ADE80), size: 14),
-                    SizedBox(width: 4),
-                    Text(
-                      '+112%',
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF4ADE80),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          // Main value
           const Text(
-            '\$1,727',
+            'Total Claims Value',
             style: TextStyle(
               fontFamily: 'Inter',
-              fontSize: 38,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: Colors.white70,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            _formatRupiah(totalValue),
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 34,
               fontWeight: FontWeight.bold,
               color: Colors.white,
-              height: 1.1,
             ),
           ),
           const SizedBox(height: 20),
-          // 4-stat row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildStatItem('8', 'Total', Colors.white),
-              _buildStatItem('5', 'Approved', const Color(0xFF4ADE80)),
-              _buildStatItem('2', 'Processing', const Color(0xFFFB923C)),
-              _buildStatItem('1', 'Rejected', const Color(0xFFF87171)),
+              _buildStatItem(claims.length.toString(), 'Total', Colors.white),
+              _buildStatItem(approvedCount.toString(), 'Approved', const Color(0xFF4ADE80)),
+              _buildStatItem(processingCount.toString(), 'Processing', const Color(0xFFFB923C)),
+              _buildStatItem(rejectedCount.toString(), 'Rejected', const Color(0xFFF87171)),
             ],
-          ),
-          const SizedBox(height: 16),
-          // Progress bar
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: 0.62,
-              backgroundColor: Colors.white.withValues(alpha: 0.2),
-              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF4ADE80)),
-              minHeight: 6,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            '62% success rate this month',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 11,
-              color: Colors.white70,
-            ),
           ),
         ],
       ),
@@ -282,147 +215,87 @@ class _HubScreenState extends State<HubScreen> {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const EvidenceCollectionScreen()),
-        );
+          MaterialPageRoute(builder: (_) => const EvidenceCollectionScreen()),
+        ).then((_) => _refreshClaims());
       },
       child: Container(
         padding: const EdgeInsets.all(32),
         decoration: BoxDecoration(
           color: primaryColor,
           borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: primaryColor.withValues(alpha: 0.3),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
+        ),
+        child: const Column(
+          children: [
+            Icon(Icons.add_circle_outline, color: Colors.white, size: 42),
+            SizedBox(height: 16),
+            Text(
+              'Create New Claim',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+            SizedBox(height: 4),
+            Text(
+              'AI-assisted filing process',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 14,
+                color: Colors.white70,
+              ),
             ),
           ],
-        ),
-        child: Center(
-          child: Column(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.add, color: Colors.white, size: 28),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Create New Claim',
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'AI-assisted filing process',
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                  color: Colors.white.withValues(alpha: 0.7),
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
   }
 
-  Widget _buildRecentClaims() {
+  Widget _buildRecentClaims(AsyncSnapshot<List<ClaimModel>> snapshot) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Recent Claims',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
-            ),
-            Text(
-              'View All ›',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: primaryColor,
-                letterSpacing: 1.0,
-              ),
-            ),
-          ],
+        const Text(
+          'Recent Claims',
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
         ),
         const SizedBox(height: 16),
-        _buildClaimItem(
-          title: 'iPhone 14 Screen',
-          amount: '\$349.00',
-          statusText: 'Processing by Aura AI',
-          statusDotColor: primaryColor,
-          chipText: 'ACTIVE',
-          chipColor: primaryColor,
-          icon: Icons.smartphone,
-          iconBgColor: primaryColor,
-          accentBorderColor: null,
-        ),
-        const SizedBox(height: 12),
-        _buildClaimItem(
-          title: 'AirPods Water Damage',
-          amount: '\$179.00',
-          statusText: 'Approved • Payment sent',
-          statusDotColor: secondaryColor,
-          statusIcon: Icons.check_circle,
-          chipText: 'SETTLED',
-          chipColor: secondaryColor,
-          icon: Icons.headphones,
-          iconBgColor: const Color(0xFFC8E6C9), // secondary-container approx
-          iconColor: secondaryColor,
-          accentBorderColor: secondaryColor,
-        ),
-        const SizedBox(height: 12),
-        _buildClaimItem(
-          title: 'Dell Laptop',
-          amount: '\$1,199.00',
-          statusText: 'Rejected • Policy exception',
-          statusDotColor: errorColor,
-          statusIcon: Icons.error,
-          chipText: 'CLOSED',
-          chipColor: errorColor,
-          icon: Icons.laptop,
-          iconBgColor: const Color(0xFFFFCDD2), // error-container approx
-          iconColor: errorColor,
-          accentBorderColor: errorColor,
-        ),
+        if (snapshot.connectionState != ConnectionState.done)
+          const Center(child: CircularProgressIndicator())
+        else if (snapshot.hasError)
+          Text(
+            snapshot.error.toString(),
+            style: TextStyle(color: errorColor, fontFamily: 'Inter'),
+          )
+        else if ((snapshot.data ?? const []).isEmpty)
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Text(
+              'No claims yet. Start a new submission to test the AI pipeline.',
+              style: TextStyle(fontFamily: 'Inter'),
+            ),
+          )
+        else
+          ...snapshot.data!.take(4).map(_buildClaimItem),
       ],
     );
   }
 
-  Widget _buildClaimItem({
-    required String title,
-    required String amount,
-    required String statusText,
-    required Color statusDotColor,
-    IconData? statusIcon,
-    required String chipText,
-    required Color chipColor,
-    required IconData icon,
-    required Color iconBgColor,
-    Color iconColor = Colors.white,
-    Color? accentBorderColor,
-  }) {
+  Widget _buildClaimItem(ClaimModel claim) {
+    final statusColor = _statusColor(claim.status);
     return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -430,118 +303,49 @@ class _HubScreenState extends State<HubScreen> {
       ),
       child: Row(
         children: [
-          if (accentBorderColor != null)
-            Container(
-              width: 4,
-              height: 72,
-              decoration: BoxDecoration(
-                color: accentBorderColor,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  bottomLeft: Radius.circular(16),
-                ),
-              ),
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
             ),
+            child: Icon(Icons.inventory_2_outlined, color: statusColor),
+          ),
+          const SizedBox(width: 16),
           Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(
-                left: accentBorderColor != null ? 12.0 : 16.0,
-                right: 16.0,
-                top: 16.0,
-                bottom: 16.0,
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: iconBgColor,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(icon, color: iconColor),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  claim.claimType,
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: const TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            if (statusIcon != null)
-                              Icon(statusIcon, color: statusDotColor, size: 14)
-                            else
-                              Container(
-                                width: 8,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  color: statusDotColor,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                statusText,
-                                style: TextStyle(
-                                  fontFamily: 'Inter',
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  color: statusDotColor,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${claim.status} • ${claim.currentStep}',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 12,
+                    color: statusColor,
+                    fontWeight: FontWeight.w600,
                   ),
-                  const SizedBox(width: 8),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        amount,
-                        style: const TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: chipColor.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          chipText,
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            color: chipColor,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            _formatRupiah(claim.decisionResult?.refundValue ?? 0),
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
             ),
           ),
         ],
@@ -555,115 +359,55 @@ class _HubScreenState extends State<HubScreen> {
       decoration: BoxDecoration(
         color: const Color(0xFFF0F3FF),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.grey.shade300.withValues(alpha: 0.5)),
       ),
-      child: Column(
+      child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [primaryColor.withValues(alpha: 0.8), primaryColor],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.auto_awesome, color: Colors.white, size: 24),
-              ),
-              const SizedBox(width: 16),
-              Text(
-                'AURA AI TIP',
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: primaryColor,
-                  letterSpacing: 1.5,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          RichText(
-            text: TextSpan(
-              style: const TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 14,
-                color: Colors.black87,
-                height: 1.5,
-              ),
-              children: const [
-                TextSpan(text: 'Based on your current device inventory, adding '),
-                TextSpan(text: 'Loss Protection', style: TextStyle(fontWeight: FontWeight.bold)),
-                TextSpan(text: ' would only increase your premium by \$2.40/mo. Would you like to see the coverage?'),
-              ],
+          Text(
+            'AURA AI TIP',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF4648D4),
+              letterSpacing: 1.5,
             ),
           ),
-          const SizedBox(height: 24),
-          Center(
-            child: ElevatedButton(
-              onPressed: () {},
-              style: ElevatedButton.styleFrom(
-                backgroundColor: primaryColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(32),
-                ),
-                elevation: 0,
-              ),
-              child: const Text(
-                'Explore',
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+          SizedBox(height: 16),
+          Text(
+            'Use filenames or descriptions like "damaged", "ambiguous", or "fake" to demo approve, review, and rejection flows quickly in mock mode.',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 14,
+              color: Colors.black87,
+              height: 1.5,
             ),
           ),
         ],
       ),
     );
   }
-}
 
-class ChartLinePainter extends CustomPainter {
-  final Color color;
-
-  ChartLinePainter({required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 2.0
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final path = Path();
-    path.moveTo(0, size.height * 0.8);
-    
-    // Create a smooth rising wave
-    path.cubicTo(
-      size.width * 0.2, size.height * 0.8,
-      size.width * 0.3, size.height * 0.2,
-      size.width * 0.5, size.height * 0.5,
-    );
-    path.cubicTo(
-      size.width * 0.7, size.height * 0.8,
-      size.width * 0.8, size.height * 0.1,
-      size.width, size.height * 0.05,
-    );
-
-    canvas.drawPath(path, paint);
+  Color _statusColor(String status) {
+    return switch (status) {
+      'APPROVED' => secondaryColor,
+      'REJECTED' => errorColor,
+      'NEEDS_REVIEW' => warningColor,
+      'PROCESSING' => primaryColor,
+      _ => Colors.grey.shade600,
+    };
   }
 
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  String _formatRupiah(int amount) {
+    final digits = amount.toString();
+    final buffer = StringBuffer();
+    for (var index = 0; index < digits.length; index++) {
+      final position = digits.length - index;
+      buffer.write(digits[index]);
+      if (position > 1 && position % 3 == 1) {
+        buffer.write('.');
+      }
+    }
+    return 'Rp${buffer.toString()}';
+  }
 }

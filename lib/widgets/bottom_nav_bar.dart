@@ -17,7 +17,7 @@ class AuraBottomNavBar extends StatelessWidget {
       Navigator.pushReplacement(
         context,
         PageRouteBuilder(
-          pageBuilder: (_, __, _) => const HubScreen(),
+          pageBuilder: (_, _, _) => const HubScreen(),
           transitionDuration: Duration.zero,
         ),
       );
@@ -25,7 +25,7 @@ class AuraBottomNavBar extends StatelessWidget {
       Navigator.pushReplacement(
         context,
         PageRouteBuilder(
-          pageBuilder: (_, __, _) => const EvidenceCollectionScreen(),
+          pageBuilder: (_, _, _) => const EvidenceCollectionScreen(),
           transitionDuration: Duration.zero,
         ),
       );
@@ -33,7 +33,7 @@ class AuraBottomNavBar extends StatelessWidget {
       Navigator.pushReplacement(
         context,
         PageRouteBuilder(
-          pageBuilder: (_, __, _) => const NotificationsScreen(),
+          pageBuilder: (_, _, _) => const NotificationsScreen(),
           transitionDuration: Duration.zero,
         ),
       );

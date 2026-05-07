@@ -1,8 +1,11 @@
-import 'dart:ui';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+
+import '../services/api_service.dart';
+import '../services/file_upload_service.dart';
+import '../widgets/bottom_nav_bar.dart';
 import 'ai_analysis_screen.dart';
 import 'hub_screen.dart';
-import '../widgets/bottom_nav_bar.dart';
 
 class EvidenceCollectionScreen extends StatefulWidget {
   const EvidenceCollectionScreen({super.key});
@@ -11,32 +14,90 @@ class EvidenceCollectionScreen extends StatefulWidget {
   State<EvidenceCollectionScreen> createState() => _EvidenceCollectionScreenState();
 }
 
-class _EvidenceCollectionScreenState extends State<EvidenceCollectionScreen> with SingleTickerProviderStateMixin {
+class _EvidenceCollectionScreenState extends State<EvidenceCollectionScreen> {
+  static const String demoUserId = 'demo-user-001';
+
+  final _descriptionController = TextEditingController();
+  final _voiceDescriptionController = TextEditingController();
+  final _apiService = ApiService();
+  final _fileUploadService = FileUploadService();
+
   String _selectedClaimType = 'Product Defect';
-  late AnimationController _pulseController;
-  late Animation<double> _pulseAnimation;
+  PlatformFile? _selectedFile;
+  bool _isSubmitting = false;
+  String? _errorMessage;
 
   final Color primaryColor = const Color(0xFF4648D4);
   final Color secondaryColor = const Color(0xFF006E2A);
   final Color backgroundColor = const Color(0xFFF9F9FF);
 
   @override
-  void initState() {
-    super.initState();
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 1),
-    )..repeat(reverse: true);
-    
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
+  void dispose() {
+    _descriptionController.dispose();
+    _voiceDescriptionController.dispose();
+    super.dispose();
   }
 
-  @override
-  void dispose() {
-    _pulseController.dispose();
-    super.dispose();
+  Future<void> _pickFile() async {
+    final file = await _fileUploadService.pickEvidenceFile();
+    if (file == null) {
+      return;
+    }
+    setState(() {
+      _selectedFile = file;
+      _errorMessage = null;
+    });
+  }
+
+  Future<void> _submitClaim() async {
+    if (_selectedFile == null) {
+      setState(() {
+        _errorMessage = 'Select one photo, video, or audio file before continuing.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final uploadedFile = await _fileUploadService.uploadPickedFile(_selectedFile!);
+      final claim = await _apiService.createClaim(
+        userId: demoUserId,
+        orderId: 'ORD-${DateTime.now().millisecondsSinceEpoch}',
+        claimType: _selectedClaimType,
+        fileIds: [uploadedFile.fileId],
+        voiceDescription: _mergedDescription,
+      );
+
+      if (!mounted) {
+        return;
+      }
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AiAnalysisScreen(claimId: claim.claimId),
+        ),
+      );
+    } catch (error) {
+      setState(() {
+        _errorMessage = error.toString().replaceFirst('Exception: ', '');
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
+  }
+
+  String get _mergedDescription {
+    final description = _descriptionController.text.trim();
+    final voiceDescription = _voiceDescriptionController.text.trim();
+    return [description, voiceDescription].where((entry) => entry.isNotEmpty).join('. ');
   }
 
   @override
@@ -62,6 +123,10 @@ class _EvidenceCollectionScreenState extends State<EvidenceCollectionScreen> wit
                 _buildTextContext(),
                 const SizedBox(height: 32),
                 _buildVoiceContext(),
+                if (_errorMessage != null) ...[
+                  const SizedBox(height: 24),
+                  _buildErrorBanner(),
+                ],
               ],
             ),
           ),
@@ -99,16 +164,6 @@ class _EvidenceCollectionScreenState extends State<EvidenceCollectionScreen> wit
           fontFamily: 'Inter',
         ),
       ),
-      actions: [
-        Padding(
-          padding: const EdgeInsets.only(right: 16.0),
-          child: CircleAvatar(
-            backgroundColor: Colors.grey.shade300,
-            radius: 18,
-            child: const Icon(Icons.person, color: Colors.white),
-          ),
-        ),
-      ],
     );
   }
 
@@ -137,7 +192,7 @@ class _EvidenceCollectionScreenState extends State<EvidenceCollectionScreen> wit
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
-                'EVIDENCE COLLECTION',
+                'SMART CLAIM',
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
@@ -150,30 +205,13 @@ class _EvidenceCollectionScreenState extends State<EvidenceCollectionScreen> wit
           ],
         ),
         const SizedBox(height: 16),
-        Container(
-          height: 8,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: Colors.grey.shade200,
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Stack(
-            children: [
-              Container(
-                width: MediaQuery.of(context).size.width / 3,
-                decoration: BoxDecoration(
-                  color: secondaryColor,
-                  borderRadius: BorderRadius.circular(4),
-                  boxShadow: [
-                    BoxShadow(
-                      color: secondaryColor.withValues(alpha: 0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: 1 / 3,
+            backgroundColor: Colors.grey.shade200,
+            color: secondaryColor,
+            minHeight: 8,
           ),
         ),
       ],
@@ -204,13 +242,9 @@ class _EvidenceCollectionScreenState extends State<EvidenceCollectionScreen> wit
   }
 
   Widget _buildClaimCard(String title, IconData icon) {
-    bool isSelected = _selectedClaimType == title;
+    final isSelected = _selectedClaimType == title;
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedClaimType = title;
-        });
-      },
+      onTap: () => setState(() => _selectedClaimType = title),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.all(16),
@@ -221,15 +255,6 @@ class _EvidenceCollectionScreenState extends State<EvidenceCollectionScreen> wit
             color: isSelected ? secondaryColor : Colors.grey.shade300,
             width: isSelected ? 2 : 1,
           ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: secondaryColor.withValues(alpha: 0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  )
-                ]
-              : [],
         ),
         child: Row(
           children: [
@@ -249,33 +274,10 @@ class _EvidenceCollectionScreenState extends State<EvidenceCollectionScreen> wit
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                  color: isSelected ? Colors.black87 : Colors.grey.shade800,
+                  color: Colors.black87,
                   fontFamily: 'Inter',
                 ),
               ),
-            ),
-            Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: isSelected ? secondaryColor : Colors.grey.shade400,
-                  width: 2,
-                ),
-              ),
-              child: isSelected
-                  ? Center(
-                      child: Container(
-                        width: 12,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          color: secondaryColor,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    )
-                  : null,
             ),
           ],
         ),
@@ -297,107 +299,102 @@ class _EvidenceCollectionScreenState extends State<EvidenceCollectionScreen> wit
           ),
         ),
         const SizedBox(height: 16),
-        CustomPaint(
-          painter: DashedRectPainter(
-            color: primaryColor.withValues(alpha: 0.4),
-            strokeWidth: 2,
-            gap: 6,
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: primaryColor.withValues(alpha: 0.25)),
           ),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
-            decoration: BoxDecoration(
-              color: primaryColor.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                AnimatedBuilder(
-                  animation: _pulseAnimation,
-                  builder: (context, child) {
-                    return Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Container(
-                          width: 80 * _pulseAnimation.value,
-                          height: 80 * _pulseAnimation.value,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: primaryColor.withValues(alpha: 0.05),
-                          ),
-                        ),
-                        Container(
-                          width: 60 * _pulseAnimation.value,
-                          height: 60 * _pulseAnimation.value,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: primaryColor.withValues(alpha: 0.1),
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.9),
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: primaryColor.withValues(alpha: 0.1),
-                                blurRadius: 10,
-                              )
-                            ]
-                          ),
-                          child: Icon(
-                            Icons.cloud_upload_outlined,
-                            color: primaryColor,
-                            size: 32,
-                          ),
-                        ),
-                      ],
-                    );
-                  },
+          child: Column(
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: primaryColor.withValues(alpha: 0.08),
                 ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Drop Photo or Video',
+                child: Icon(Icons.cloud_upload_outlined, color: primaryColor, size: 32),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Photo, video, or audio evidence',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                  fontFamily: 'Inter',
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '1 file per claim, maximum 500MB.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                  fontFamily: 'Inter',
+                ),
+              ),
+              const SizedBox(height: 16),
+              OutlinedButton(
+                onPressed: _isSubmitting ? null : _pickFile,
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: primaryColor),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                ),
+                child: Text(
+                  _selectedFile == null ? 'BROWSE FILES' : 'REPLACE FILE',
                   style: TextStyle(
-                    fontSize: 18,
+                    color: primaryColor,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                    letterSpacing: 1.0,
                     fontFamily: 'Inter',
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Max 500MB, 2 minute duration limit.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                    fontFamily: 'Inter',
-                  ),
-                ),
+              ),
+              if (_selectedFile != null) ...[
                 const SizedBox(height: 16),
-                OutlinedButton(
-                  onPressed: () {},
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: primaryColor),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: backgroundColor,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Text(
-                    'BROWSE FILES',
-                    style: TextStyle(
-                      color: primaryColor,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.0,
-                      fontFamily: 'Inter',
-                    ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.insert_drive_file_outlined, color: primaryColor),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _selectedFile!.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontFamily: 'Inter',
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${(_selectedFile!.size / 1024 / 1024).toStringAsFixed(2)} MB',
+                              style: TextStyle(color: Colors.grey.shade600, fontFamily: 'Inter'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
-            ),
+            ],
           ),
         ),
       ],
@@ -409,7 +406,7 @@ class _EvidenceCollectionScreenState extends State<EvidenceCollectionScreen> wit
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Text Context',
+          'Claim Description',
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
@@ -418,33 +415,10 @@ class _EvidenceCollectionScreenState extends State<EvidenceCollectionScreen> wit
           ),
         ),
         const SizedBox(height: 16),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey.shade300),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.02),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: TextField(
-            maxLines: 4,
-            decoration: InputDecoration(
-              hintText: 'Describe the issue...',
-              hintStyle: TextStyle(color: Colors.grey.shade400, fontFamily: 'Inter'),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.all(16),
-            ),
-            style: const TextStyle(
-              fontSize: 14,
-              color: Colors.black87,
-              fontFamily: 'Inter',
-            ),
-          ),
+        _buildTextField(
+          controller: _descriptionController,
+          hintText: 'Describe the damage, missing item, or defect.',
+          maxLines: 4,
         ),
       ],
     );
@@ -454,75 +428,102 @@ class _EvidenceCollectionScreenState extends State<EvidenceCollectionScreen> wit
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Voice Context (Optional)',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey.shade700,
-                fontFamily: 'Inter',
-              ),
-            ),
-            Icon(Icons.info_outline, size: 18, color: Colors.grey.shade400),
-          ],
+        Text(
+          'Voice Description (Optional)',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey.shade700,
+            fontFamily: 'Inter',
+          ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.02),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            border: Border.all(color: Colors.grey.shade300),
           ),
-          child: Row(
+          child: Column(
             children: [
-              Container(
-                decoration: BoxDecoration(
-                  color: primaryColor.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                padding: const EdgeInsets.all(12),
-                child: Icon(Icons.mic, color: primaryColor),
+              Row(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: primaryColor.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    padding: const EdgeInsets.all(12),
+                    child: Icon(Icons.mic, color: primaryColor),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      'Recorder integration is mocked in this demo. Enter the voice transcript below.',
+                      style: TextStyle(color: Colors.grey.shade700, fontFamily: 'Inter'),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: List.generate(17, (index) {
-                    final heights = [10.0, 15.0, 20.0, 12.0, 25.0, 18.0, 10.0, 22.0, 15.0, 10.0, 20.0, 12.0, 18.0, 24.0, 15.0, 10.0, 12.0];
-                    return Container(
-                      width: 4,
-                      height: heights[index],
-                      decoration: BoxDecoration(
-                        color: primaryColor.withValues(alpha: 0.6),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    );
-                  }),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Text(
-                '00:00',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey.shade800,
-                  fontFamily: 'Inter',
-                ),
+              const SizedBox(height: 16),
+              _buildTextField(
+                controller: _voiceDescriptionController,
+                hintText: 'Optional transcript or additional voice notes.',
+                maxLines: 3,
               ),
             ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hintText,
+    required int maxLines,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: TextField(
+        controller: controller,
+        maxLines: maxLines,
+        decoration: InputDecoration(
+          hintText: hintText,
+          hintStyle: TextStyle(color: Colors.grey.shade400, fontFamily: 'Inter'),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.all(16),
+        ),
+        style: const TextStyle(
+          fontSize: 14,
+          color: Colors.black87,
+          fontFamily: 'Inter',
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFE8E7),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        _errorMessage!,
+        style: const TextStyle(
+          color: Color(0xFFB3261E),
+          fontWeight: FontWeight.w600,
+          fontFamily: 'Inter',
+        ),
+      ),
     );
   }
 
@@ -538,20 +539,14 @@ class _EvidenceCollectionScreenState extends State<EvidenceCollectionScreen> wit
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              backgroundColor.withValues(alpha: 0.0),
+              backgroundColor.withValues(alpha: 0),
               backgroundColor,
               backgroundColor,
             ],
-            stops: const [0.0, 0.3, 1.0],
           ),
         ),
         child: ElevatedButton(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const AiAnalysisScreen()),
-            );
-          },
+          onPressed: _isSubmitting ? null : _submitClaim,
           style: ElevatedButton.styleFrom(
             backgroundColor: primaryColor,
             shape: RoundedRectangleBorder(
@@ -560,75 +555,33 @@ class _EvidenceCollectionScreenState extends State<EvidenceCollectionScreen> wit
             padding: const EdgeInsets.symmetric(vertical: 16),
             elevation: 0,
           ),
-          child: const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.psychology, color: Colors.white, size: 24),
-              SizedBox(width: 8),
-              Text(
-                'Analyze with AURA AI',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                  fontFamily: 'Inter',
+          child: _isSubmitting
+              ? const SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.4,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+              : const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.psychology, color: Colors.white, size: 24),
+                    SizedBox(width: 8),
+                    Text(
+                      'Analyze with AURA AI',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                        fontFamily: 'Inter',
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
         ),
       ),
     );
   }
-}
-
-class DashedRectPainter extends CustomPainter {
-  final Color color;
-  final double strokeWidth;
-  final double gap;
-
-  DashedRectPainter({
-    required this.color,
-    required this.strokeWidth,
-    required this.gap,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final Paint paint = Paint()
-      ..color = color
-      ..strokeWidth = strokeWidth
-      ..style = PaintingStyle.stroke;
-
-    final Path path = Path()
-      ..addRRect(RRect.fromRectAndRadius(
-          Rect.fromLTWH(0, 0, size.width, size.height),
-          const Radius.circular(16)));
-
-    final Path dashedPath = _createDashedPath(path, gap, gap * 2);
-    canvas.drawPath(dashedPath, paint);
-  }
-
-  Path _createDashedPath(Path source, double dashLength, double gapLength) {
-    final Path path = Path();
-    for (final PathMetric metric in source.computeMetrics()) {
-      double distance = 0.0;
-      bool draw = true;
-      while (distance < metric.length) {
-        final double len = draw ? dashLength : gapLength;
-        if (draw) {
-          path.addPath(
-            metric.extractPath(distance, distance + len),
-            Offset.zero,
-          );
-        }
-        distance += len;
-        draw = !draw;
-      }
-    }
-    return path;
-  }
-
-  @override
-  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }

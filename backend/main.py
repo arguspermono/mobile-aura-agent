@@ -1,18 +1,29 @@
 import asyncio
-import uuid
-from datetime import datetime
-from fastapi import FastAPI, UploadFile, File, Form, BackgroundTasks, HTTPException
+from datetime import datetime, timezone
+from typing import Any
+
+from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import Optional, List
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 
-from services.mock_firestore import db, update_claim_status, get_claim
-from services.mock_gcs import upload_to_gcs
-from services.mock_ai import analyze_media
-from services.mock_bigquery import get_risk_score
 from services.decision_engine import make_decision
+from services.mock_ai import analyze_media
+from services.mock_bigquery import get_user_profile
+from services.mock_exif import validate_file_metadata
+from services.mock_fcm import send_claim_notification
+from services.mock_firestore import (
+    create_claim,
+    get_claim,
+    get_file,
+    list_claims,
+    mark_analysis_started,
+    update_claim,
+)
+from services.mock_gcs import fetch_files, upload_to_gcs
+from services.mock_midtrans import trigger_refund
 
-app = FastAPI(title="Aura-Agent API", version="1.0.0")
+app = FastAPI(title="Aura-Agent API", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -22,118 +33,259 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class ClaimResponse(BaseModel):
-    claim_id: str
-    status: str
-    message: str
 
-async def process_claim_workflow(claim_id: str, user_id: str, media_urls: List[str], text_description: str):
-    """
-    Background task to process the claim through the AI pipeline.
-    """
-    try:
-        # 1. Update status to PROCESSING
-        update_claim_status(claim_id, "PROCESSING")
-        
-        # 2. Extract Metadata (Mocked)
-        await asyncio.sleep(1) # simulate extraction
-        exif_valid = True
-
-        # 3. Pull Risk Score
-        risk_score = await get_risk_score(user_id)
-        
-        # 4. Multimodal AI Analysis (Vertex AI / Gemini mock)
-        ai_confidence, ai_explanation, ai_detected_anomalies = await analyze_media(media_urls, text_description)
-
-        # 5. Decision Engine
-        decision, final_status = make_decision(ai_confidence, risk_score, exif_valid)
-
-        # 6. Execute action (Dummy Payment Gateway)
-        if decision == "REFUND_APPROVED":
-            await asyncio.sleep(1) # simulate payment gateway
-            action_taken = "Refund of $50.00 processed."
-        elif decision == "MANUAL_REVIEW":
-            action_taken = "Flagged for manual review."
-        else:
-            action_taken = "Claim rejected automatically."
-
-        # 7. Update Firestore with results
-        db[claim_id].update({
-            "status": final_status,
-            "decision": decision,
-            "ai_confidence": ai_confidence,
-            "ai_explanation": ai_explanation,
-            "risk_score": risk_score,
-            "anomalies": ai_detected_anomalies,
-            "action_taken": action_taken,
-            "updated_at": datetime.utcnow().isoformat()
-        })
-        print(f"Claim {claim_id} processed successfully. Status: {final_status}")
-
-    except Exception as e:
-        print(f"Error processing claim {claim_id}: {e}")
-        update_claim_status(claim_id, "ERROR")
-
-@app.post("/api/v1/claims/upload", response_model=ClaimResponse)
-async def upload_claim(
-    background_tasks: BackgroundTasks,
-    user_id: str = Form(...),
-    description: str = Form(""),
-    files: List[UploadFile] = File(...)
-):
-    claim_id = str(uuid.uuid4())
-    
-    # Simulate GCS upload
-    media_urls = []
-    for file in files:
-        url = await upload_to_gcs(file)
-        media_urls.append(url)
-    
-    # Initialize in Firestore
-    db[claim_id] = {
-        "claim_id": claim_id,
-        "user_id": user_id,
-        "description": description,
-        "media_urls": media_urls,
-        "status": "PENDING",
-        "created_at": datetime.utcnow().isoformat(),
-        "decision": None,
-        "ai_confidence": None,
-        "risk_score": None,
-        "action_taken": None
-    }
-
-    # Trigger async orchestration
-    background_tasks.add_task(process_claim_workflow, claim_id, user_id, media_urls, description)
-
-    return ClaimResponse(
-        claim_id=claim_id,
-        status="PENDING",
-        message="Claim received. Processing asynchronously."
+@app.exception_handler(HTTPException)
+async def http_exception_handler(_: Request, exc: HTTPException) -> JSONResponse:
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "status": "error",
+            "data": {},
+            "message": exc.detail,
+            "timestamp": now_iso(),
+        },
     )
 
-@app.get("/api/v1/claims/{claim_id}")
-async def check_claim_status(claim_id: str):
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(_: Request, exc: Exception) -> JSONResponse:
+    return JSONResponse(
+        status_code=500,
+        content={
+            "status": "error",
+            "data": {},
+            "message": str(exc),
+            "timestamp": now_iso(),
+        },
+    )
+
+
+def now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def response_ok(data: Any, message: str) -> dict[str, Any]:
+    return {
+        "status": "ok",
+        "data": data,
+        "message": message,
+        "timestamp": now_iso(),
+    }
+
+
+class CreateClaimRequest(BaseModel):
+    user_id: str
+    order_id: str
+    claim_type: str
+    file_ids: list[str] = Field(min_length=1)
+    voice_description: str | None = ""
+
+
+def ensure_claim(claim_id: str) -> dict[str, Any]:
     claim = get_claim(claim_id)
     if not claim:
         raise HTTPException(status_code=404, detail="Claim not found")
     return claim
 
-@app.get("/api/v1/claims")
-async def get_all_claims():
-    """Endpoint for Seller Dashboard to fetch all claims."""
-    return list(db.values())
+
+async def run_analysis_pipeline(claim_id: str) -> None:
+    claim = ensure_claim(claim_id)
+    file_records = await fetch_files(claim["file_ids"])
+
+    try:
+        update_claim(
+            claim_id,
+            status="PROCESSING",
+            current_step="uploading_evidence",
+        )
+        await asyncio.sleep(0.5)
+
+        update_claim(claim_id, current_step="analyzing_evidence")
+        ai_result = await analyze_media(
+            file_records=file_records,
+            claim_type=claim["claim_type"],
+            voice_description=claim.get("voice_description", ""),
+        )
+
+        update_claim(claim_id, current_step="detecting_damage_patterns")
+        exif_result = await validate_file_metadata(file_records)
+
+        update_claim(claim_id, current_step="calculating_confidence_score")
+        user_profile = await get_user_profile(claim["user_id"])
+        confidence_score = (
+            ai_result["visual_score"] * 0.6
+            + exif_result["exif_score"] * 0.2
+            + user_profile["trust_score"] * 0.2
+        )
+        decision = make_decision(confidence_score)
+
+        refund_result = None
+        if decision == "APPROVED":
+            refund_result = await trigger_refund(
+                claim_id=claim_id,
+                order_id=claim["order_id"],
+                amount=ai_result["refund_value"],
+            )
+
+        update_claim(claim_id, current_step="generating_report")
+        await asyncio.sleep(0.5)
+
+        decision_result = {
+            "confidence_score": round(confidence_score, 4),
+            "decision": decision,
+            "visual_score": ai_result["visual_score"],
+            "exif_score": exif_result["exif_score"],
+            "trust_score": user_profile["trust_score"],
+            "ai_explanation": ai_result["ai_explanation"],
+            "damage_type": ai_result["damage_type"],
+            "refund_value": ai_result["refund_value"],
+            "coverage": ai_result["coverage"],
+            "trust_profile": user_profile,
+            "exif_validation": exif_result,
+            "refund": refund_result,
+            "anomalies": ai_result["anomalies"],
+        }
+
+        final_status = decision
+        notification_message = {
+            "APPROVED": "Refund claim approved automatically.",
+            "NEEDS_REVIEW": "Claim needs seller review.",
+            "REJECTED": "Claim rejected after automated validation.",
+        }[decision]
+
+        update_claim(
+            claim_id,
+            status=final_status,
+            current_step="complete",
+            decision_result=decision_result,
+            analysis_started_at=claim.get("analysis_started_at") or now_iso(),
+            completed_at=now_iso(),
+        )
+        await send_claim_notification(
+            claim_id=claim_id,
+            user_id=claim["user_id"],
+            title=f"Claim {final_status}",
+            body=notification_message,
+        )
+    except Exception as exc:  # pragma: no cover - defensive path
+        update_claim(
+            claim_id,
+            status="ERROR",
+            current_step="failed",
+            error_message=str(exc),
+        )
+
+
+@app.get("/")
+async def root() -> dict[str, Any]:
+    return response_ok({"service": "Aura-Agent API"}, "Aura-Agent backend is running")
+
+
+@app.get("/health")
+async def health() -> dict[str, Any]:
+    return response_ok({"healthy": True}, "Service healthy")
+
+
+@app.post("/api/v1/upload/")
+async def upload_file(file: UploadFile = File(...)) -> dict[str, Any]:
+    file_record = await upload_to_gcs(file)
+    return response_ok(
+        {
+            "file_id": file_record["file_id"],
+            "filename": file_record["filename"],
+            "content_type": file_record["content_type"],
+            "signed_url": file_record["signed_url"],
+            "gcs_uri": file_record["gcs_uri"],
+            "size_bytes": file_record["size_bytes"],
+        },
+        "File uploaded successfully",
+    )
+
+
+@app.post("/api/v1/claims/")
+async def create_claim_endpoint(payload: CreateClaimRequest) -> dict[str, Any]:
+    for file_id in payload.file_ids:
+        if not get_file(file_id):
+            raise HTTPException(status_code=400, detail=f"Unknown file_id: {file_id}")
+
+    claim = create_claim(
+        user_id=payload.user_id,
+        order_id=payload.order_id,
+        claim_type=payload.claim_type,
+        file_ids=payload.file_ids,
+        voice_description=payload.voice_description or "",
+    )
+    return response_ok(claim, "Claim created successfully")
+
+
+@app.get("/api/v1/claims/")
+async def list_claims_endpoint(user_id: str | None = None) -> dict[str, Any]:
+    return response_ok(list_claims(user_id=user_id), "Claims fetched successfully")
+
+
+@app.get("/api/v1/claims/{claim_id}")
+async def get_claim_endpoint(claim_id: str) -> dict[str, Any]:
+    claim = ensure_claim(claim_id)
+    return response_ok(claim, "Claim fetched successfully")
+
+
+@app.post("/api/v1/claims/{claim_id}/analyze")
+async def analyze_claim(
+    claim_id: str,
+    background_tasks: BackgroundTasks,
+) -> dict[str, Any]:
+    claim = ensure_claim(claim_id)
+    if claim["status"] == "PROCESSING":
+        return response_ok(
+            {
+                "claim_id": claim_id,
+                "status": claim["status"],
+                "current_step": claim["current_step"],
+                "updated_at": claim["updated_at"],
+            },
+            "Claim analysis already in progress",
+        )
+
+    mark_analysis_started(claim_id)
+    background_tasks.add_task(run_analysis_pipeline, claim_id)
+    claim = ensure_claim(claim_id)
+    return response_ok(
+        {
+            "claim_id": claim_id,
+            "status": claim["status"],
+            "current_step": claim["current_step"],
+            "updated_at": claim["updated_at"],
+        },
+        "Claim analysis started",
+    )
+
+
+@app.get("/api/v1/claims/{claim_id}/status")
+async def get_claim_status(claim_id: str) -> dict[str, Any]:
+    claim = ensure_claim(claim_id)
+    return response_ok(
+        {
+            "claim_id": claim["claim_id"],
+            "status": claim["status"],
+            "current_step": claim["current_step"],
+            "updated_at": claim["updated_at"],
+        },
+        "Claim status fetched successfully",
+    )
+
 
 @app.post("/api/v1/claims/{claim_id}/override")
-async def override_claim(claim_id: str, new_status: str = Form(...), seller_notes: str = Form("")):
-    claim = get_claim(claim_id)
-    if not claim:
-        raise HTTPException(status_code=404, detail="Claim not found")
-    
-    db[claim_id].update({
-        "status": new_status,
-        "decision": "MANUAL_OVERRIDE",
-        "action_taken": seller_notes,
-        "updated_at": datetime.utcnow().isoformat()
-    })
-    return {"message": "Claim overridden successfully", "claim": db[claim_id]}
+async def override_claim(
+    claim_id: str,
+    new_status: str = Form(...),
+    seller_notes: str = Form(""),
+) -> dict[str, Any]:
+    ensure_claim(claim_id)
+    update_claim(
+        claim_id,
+        status=new_status,
+        current_step="complete",
+        seller_notes=seller_notes,
+    )
+    claim = ensure_claim(claim_id)
+    return response_ok(claim, "Claim overridden successfully")
