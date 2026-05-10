@@ -100,3 +100,10 @@ def mark_analysis_started(claim_id: str) -> dict[str, Any]:
 
 def add_notification(notification: dict[str, Any]) -> None:
     NOTIFICATIONS_DB.append(notification)
+
+
+def list_notifications(*, user_id: str | None = None) -> list[dict[str, Any]]:
+    notifications = NOTIFICATIONS_DB
+    if user_id:
+        notifications = [item for item in notifications if item["user_id"] == user_id]
+    return sorted(notifications, key=lambda item: item["created_at"], reverse=True)

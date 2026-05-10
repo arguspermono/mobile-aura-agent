@@ -20,6 +20,10 @@ class AiAnalysisScreen extends StatefulWidget {
 }
 
 class _AiAnalysisScreenState extends State<AiAnalysisScreen> with TickerProviderStateMixin {
+  static const bool _useTemporaryMockAnalysis = bool.fromEnvironment(
+    'AURA_TEMP_MOCK_ANALYSIS',
+    defaultValue: true,
+  );
   final _apiService = ApiService();
   final _firestoreService = FirestoreService();
 
@@ -30,6 +34,7 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> with TickerProvider
   StreamSubscription<ClaimStatusModel>? _statusSubscription;
   ClaimStatusModel? _latestStatus;
   String? _errorMessage;
+  String? _mockStep;
   bool _navigated = false;
 
   final Color primaryColor = const Color(0xFF4648D4);
@@ -60,6 +65,10 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> with TickerProvider
   }
 
   Future<void> _startAnalysis() async {
+    if (_useTemporaryMockAnalysis) {
+      unawaited(_runMockProgress());
+    }
+
     try {
       final initialStatus = await _apiService.analyzeClaim(widget.claimId);
       if (!mounted) {
@@ -117,6 +126,18 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> with TickerProvider
     _blinkController.dispose();
     _shimmerController.dispose();
     super.dispose();
+  }
+
+  Future<void> _runMockProgress() async {
+    for (final step in _steps) {
+      if (!mounted || _latestStatus?.isTerminal == true) {
+        return;
+      }
+      setState(() {
+        _mockStep = step;
+      });
+      await Future<void>.delayed(const Duration(milliseconds: 700));
+    }
   }
 
   @override
@@ -227,14 +248,32 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> with TickerProvider
     if (status == null) {
       return 0.12;
     }
-    if (status.currentStep == 'complete') {
+    final currentStep = _visibleStep(status);
+    if (currentStep == 'complete') {
       return 1;
     }
-    final index = _steps.indexOf(status.currentStep);
+    final index = _steps.indexOf(currentStep);
     if (index == -1) {
       return 0.12;
     }
     return (index + 1) / (_steps.length + 1);
+  }
+
+  String _visibleStep(ClaimStatusModel? status) {
+    if (status == null) {
+      return _mockStep ?? 'pending';
+    }
+    if (status.currentStep == 'complete' || status.currentStep == 'failed') {
+      return status.currentStep;
+    }
+    if (_useTemporaryMockAnalysis && _mockStep != null) {
+      final mockIndex = _steps.indexOf(_mockStep!);
+      final statusIndex = _steps.indexOf(status.currentStep);
+      if (mockIndex > statusIndex) {
+        return _mockStep!;
+      }
+    }
+    return status.currentStep;
   }
 
   Widget _buildCentralAiGraphic() {
@@ -340,9 +379,10 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> with TickerProvider
     required ClaimStatusModel? status,
   }) {
     final index = _steps.indexOf(step);
-    final currentIndex = status == null ? -1 : _steps.indexOf(status.currentStep);
-    final isComplete = status?.currentStep == 'complete' || (currentIndex > index);
-    final isActive = status?.currentStep == step;
+    final visibleStep = _visibleStep(status);
+    final currentIndex = _steps.indexOf(visibleStep);
+    final isComplete = visibleStep == 'complete' || (currentIndex > index);
+    final isActive = visibleStep == step;
     final bool isFailed = status?.status == 'ERROR';
     final rowColor = isFailed
         ? const Color(0xFFB3261E)
@@ -443,7 +483,7 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> with TickerProvider
           Row(
             children: [
               Text(
-                '> Current step: ${status?.currentStep ?? 'booting'}',
+                '> Current step: ${_visibleStep(status)}',
                 style: TextStyle(
                   fontFamily: 'Courier',
                   fontSize: 12,
@@ -477,12 +517,16 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> with TickerProvider
       lines.add('> Preparing analysis pipeline...');
       return lines;
     }
-    switch (status.currentStep) {
+    switch (_visibleStep(status)) {
       case 'uploading_evidence':
         lines.add('> Upload manifest verified and signed URL stored.');
         break;
       case 'analyzing_evidence':
-        lines.add('> Gemini multimodal damage analysis in progress.');
+        lines.add(
+          _useTemporaryMockAnalysis
+              ? '> Temporary mock analysis is running against backend-safe services.'
+              : '> Gemini multimodal damage analysis in progress.',
+        );
         break;
       case 'detecting_damage_patterns':
         lines.add('> EXIF, timestamp, and device metadata checks running.');

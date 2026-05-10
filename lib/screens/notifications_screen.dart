@@ -1,6 +1,10 @@
 import 'dart:math';
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
+
+import '../models/notification_model.dart';
+import '../services/api_service.dart';
 import '../widgets/bottom_nav_bar.dart';
 import 'hub_screen.dart';
 
@@ -12,6 +16,9 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
+  static const String demoUserId = 'demo-user-001';
+
+  final _apiService = ApiService();
   final Color primaryColor = const Color(0xFF4648d4);
   final Color primaryContainer = const Color(0xFF6063ee);
   final Color secondaryColor = const Color(0xFF006e2a);
@@ -19,9 +26,22 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   final Color tertiaryColor = const Color(0xFF595c5e);
   final Color tertiaryContainer = const Color(0xFF727577);
   final Color backgroundColor = const Color(0xFFF9F9FF);
-  final Color darkHeader = const Color(0xFF121212);
 
   int _selectedTabIndex = 0;
+  late Future<List<NotificationModel>> _notificationsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _notificationsFuture = _apiService.listNotifications(userId: demoUserId);
+  }
+
+  Future<void> _refreshNotifications() async {
+    setState(() {
+      _notificationsFuture = _apiService.listNotifications(userId: demoUserId);
+    });
+    await _notificationsFuture;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,6 +77,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
         ),
         actions: [
+          IconButton(
+            onPressed: _refreshNotifications,
+            icon: Icon(Icons.refresh, color: Colors.grey.shade700),
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
             child: CircleAvatar(
@@ -67,32 +91,42 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.only(
-            top: 24.0,
-            left: 24.0,
-            right: 24.0,
-            bottom: 120.0,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(),
-              const SizedBox(height: 24),
-              _buildSegmentedTabControl(),
-              const SizedBox(height: 32),
-              _buildNotificationList(),
-              const SizedBox(height: 32),
-              _buildAILayerCard(),
-            ],
-          ),
+      body: RefreshIndicator(
+        onRefresh: _refreshNotifications,
+        child: FutureBuilder<List<NotificationModel>>(
+          future: _notificationsFuture,
+          builder: (context, snapshot) {
+            final notifications = _filteredNotifications(snapshot.data ?? const []);
+            return SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Padding(
+                padding: const EdgeInsets.only(
+                  top: 24.0,
+                  left: 24.0,
+                  right: 24.0,
+                  bottom: 120.0,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildHeader(snapshot.data?.length ?? 0),
+                    const SizedBox(height: 24),
+                    _buildSegmentedTabControl(),
+                    const SizedBox(height: 32),
+                    _buildNotificationList(snapshot, notifications),
+                    const SizedBox(height: 32),
+                    _buildAILayerCard(snapshot.data ?? const []),
+                  ],
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(int totalNotifications) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -108,7 +142,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Stay updated with your claim status and AI insights.',
+          'Backend activity feed for $totalNotifications claim updates.',
           style: TextStyle(
             fontFamily: 'Inter',
             fontSize: 14,
@@ -132,7 +166,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         children: [
           _buildTabItem(0, 'All'),
           _buildTabItem(1, 'Approved'),
-          _buildTabItem(2, 'Processing'),
+          _buildTabItem(2, 'Created'),
         ],
       ),
     );
@@ -175,163 +209,176 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  Widget _buildNotificationList() {
+  Widget _buildNotificationList(
+    AsyncSnapshot<List<NotificationModel>> snapshot,
+    List<NotificationModel> notifications,
+  ) {
+    if (snapshot.connectionState != ConnectionState.done) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (snapshot.hasError) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Text(
+          snapshot.error.toString(),
+          style: const TextStyle(
+            fontFamily: 'Inter',
+            color: Color(0xFFB3261E),
+          ),
+        ),
+      );
+    }
+    if (notifications.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Text(
+          'No backend notifications yet. Create a claim to populate this feed.',
+          style: TextStyle(fontFamily: 'Inter'),
+        ),
+      );
+    }
+
     return Column(
       children: [
-        _buildNotificationCard(
-          accentColor: secondaryColor,
-          iconBgColor: secondaryContainer,
-          iconColor: const Color(0xFF00732C),
-          icon: Icons.check_circle,
-          title: 'Claim Approved!',
-          time: '2m ago',
-          body: 'Your claim #8821 for vehicle repair has been successfully verified and approved for payout.',
-          isUnread: true,
-        ),
-        const SizedBox(height: 16),
-        _buildNotificationCard(
-          accentColor: primaryColor,
-          iconBgColor: const Color(0xFFE1E0FF),
-          iconColor: primaryColor,
-          icon: Icons.notifications_none,
-          title: 'AI Analysis Complete',
-          time: '1h ago',
-          body: 'AURA has finished scanning your uploaded documents for the property damage claim.',
-          isUnread: false,
-        ),
-        const SizedBox(height: 16),
-        _buildNotificationCard(
-          accentColor: tertiaryContainer,
-          iconBgColor: const Color(0xFFE0E3E5),
-          iconColor: tertiaryColor,
-          icon: Icons.schedule,
-          title: 'Claim Processing',
-          time: '5h ago',
-          body: 'Your medical reimbursement request is currently being reviewed by our neural engine.',
-          isUnread: false,
-          opacity: 0.8,
-        ),
+        for (var index = 0; index < notifications.length; index++) ...[
+          _buildNotificationCard(
+            notification: notifications[index],
+            isUnread: index == 0,
+          ),
+          if (index != notifications.length - 1) const SizedBox(height: 16),
+        ],
       ],
     );
   }
 
   Widget _buildNotificationCard({
-    required Color accentColor,
-    required Color iconBgColor,
-    required Color iconColor,
-    required IconData icon,
-    required String title,
-    required String time,
-    required String body,
+    required NotificationModel notification,
     required bool isUnread,
-    double opacity = 1.0,
   }) {
-    return Opacity(
-      opacity: opacity,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.75),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Container(
-                    width: 4,
-                    decoration: BoxDecoration(
-                      color: accentColor,
-                      boxShadow: [
-                        BoxShadow(
-                          color: accentColor.withValues(alpha: 0.4),
-                          blurRadius: 8,
-                          offset: const Offset(2, 0),
+    final style = _notificationStyle(notification);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.75),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  width: 4,
+                  decoration: BoxDecoration(
+                    color: style.accentColor,
+                    boxShadow: [
+                      BoxShadow(
+                        color: style.accentColor.withValues(alpha: 0.4),
+                        blurRadius: 8,
+                        offset: const Offset(2, 0),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: style.iconBgColor,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(style.icon, color: style.iconColor),
                         ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      notification.title,
+                                      style: const TextStyle(
+                                        fontFamily: 'Inter',
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                  ),
+                                  Text(
+                                    _timeAgo(notification.createdAt),
+                                    style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.5,
+                                      color: Colors.grey.shade500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                notification.body,
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 12,
+                                  height: 1.5,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Claim ${notification.claimId.isEmpty ? '-' : notification.claimId.substring(0, min(8, notification.claimId.length))}',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: style.accentColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (isUnread) ...[
+                          const SizedBox(width: 12),
+                          Container(
+                            margin: const EdgeInsets.only(top: 6),
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: primaryColor,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ] else
+                          const SizedBox(width: 20),
                       ],
                     ),
                   ),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              color: iconBgColor,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(icon, color: iconColor),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        title,
-                                        style: const TextStyle(
-                                          fontFamily: 'Inter',
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.black87,
-                                        ),
-                                      ),
-                                    ),
-                                    Text(
-                                      time,
-                                      style: TextStyle(
-                                        fontFamily: 'Inter',
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w600,
-                                        letterSpacing: 0.5,
-                                        color: Colors.grey.shade500,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  body,
-                                  style: TextStyle(
-                                    fontFamily: 'Inter',
-                                    fontSize: 12,
-                                    height: 1.5,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (isUnread) ...[
-                            const SizedBox(width: 12),
-                            Container(
-                              margin: const EdgeInsets.only(top: 6),
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: primaryColor,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          ] else
-                            const SizedBox(width: 20),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
@@ -339,12 +386,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  Widget _buildAILayerCard() {
+  Widget _buildAILayerCard(List<NotificationModel> notifications) {
+    final createdCount = notifications.where((item) => item.title.contains('Created')).length;
+    final approvedCount = notifications.where((item) => item.title.contains('APPROVED')).length;
+    final percentage = notifications.isEmpty ? 0.0 : approvedCount / notifications.length;
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF6063EE), Color(0xFF303F9F)], // primary-container to indigo-700
+          colors: [Color(0xFF6063EE), Color(0xFF303F9F)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -368,7 +419,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     Icon(Icons.auto_awesome, color: Colors.white.withValues(alpha: 0.9), size: 16),
                     const SizedBox(width: 8),
                     Text(
-                      'INTELLIGENCE LAYER',
+                      'BACKEND FEED',
                       style: TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 10,
@@ -381,7 +432,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  'Real-time claim updates',
+                  'Temporary mock notifications',
                   style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 16,
@@ -391,7 +442,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'AURA AI is monitoring 3 claims in the background to ensure lightning-fast processing.',
+                  '$createdCount created events and $approvedCount approved events are available for backend testing.',
                   style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 12,
@@ -408,15 +459,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             height: 64,
             child: CustomPaint(
               painter: DonutChartPainter(
-                percentage: 0.75,
+                percentage: percentage,
                 backgroundColor: Colors.white.withValues(alpha: 0.2),
                 foregroundColor: const Color(0xFF69FF87),
                 strokeWidth: 4,
               ),
-              child: const Center(
+              child: Center(
                 child: Text(
-                  '75%',
-                  style: TextStyle(
+                  '${(percentage * 100).round()}%',
+                  style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -430,6 +481,75 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       ),
     );
   }
+
+  List<NotificationModel> _filteredNotifications(List<NotificationModel> notifications) {
+    return switch (_selectedTabIndex) {
+      1 => notifications.where((item) => item.title.contains('APPROVED')).toList(),
+      2 => notifications.where((item) => item.title.contains('Created')).toList(),
+      _ => notifications,
+    };
+  }
+
+  _NotificationStyle _notificationStyle(NotificationModel notification) {
+    if (notification.title.contains('APPROVED')) {
+      return _NotificationStyle(
+        accentColor: secondaryColor,
+        iconBgColor: secondaryContainer,
+        iconColor: const Color(0xFF00732C),
+        icon: Icons.check_circle,
+      );
+    }
+    if (notification.title.contains('REJECTED')) {
+      return _NotificationStyle(
+        accentColor: const Color(0xFFB3261E),
+        iconBgColor: const Color(0xFFFFE8E7),
+        iconColor: const Color(0xFFB3261E),
+        icon: Icons.gpp_bad,
+      );
+    }
+    if (notification.title.contains('REVIEW')) {
+      return _NotificationStyle(
+        accentColor: const Color(0xFFF59E0B),
+        iconBgColor: const Color(0xFFFFF1CC),
+        iconColor: const Color(0xFF9A6700),
+        icon: Icons.rule,
+      );
+    }
+    return _NotificationStyle(
+      accentColor: tertiaryContainer,
+      iconBgColor: const Color(0xFFE0E3E5),
+      iconColor: tertiaryColor,
+      icon: Icons.notifications_none,
+    );
+  }
+
+  String _timeAgo(DateTime dateTime) {
+    final difference = DateTime.now().difference(dateTime);
+    if (difference.inMinutes < 1) {
+      return 'now';
+    }
+    if (difference.inHours < 1) {
+      return '${difference.inMinutes}m ago';
+    }
+    if (difference.inDays < 1) {
+      return '${difference.inHours}h ago';
+    }
+    return '${difference.inDays}d ago';
+  }
+}
+
+class _NotificationStyle {
+  const _NotificationStyle({
+    required this.accentColor,
+    required this.iconBgColor,
+    required this.iconColor,
+    required this.icon,
+  });
+
+  final Color accentColor;
+  final Color iconBgColor;
+  final Color iconColor;
+  final IconData icon;
 }
 
 class DonutChartPainter extends CustomPainter {

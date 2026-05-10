@@ -16,6 +16,7 @@ from services.mock_firestore import (
     create_claim,
     get_claim,
     get_file,
+    list_notifications,
     list_claims,
     mark_analysis_started,
     update_claim,
@@ -215,6 +216,12 @@ async def create_claim_endpoint(payload: CreateClaimRequest) -> dict[str, Any]:
         file_ids=payload.file_ids,
         voice_description=payload.voice_description or "",
     )
+    await send_claim_notification(
+        claim_id=claim["claim_id"],
+        user_id=claim["user_id"],
+        title="Claim Created",
+        body=f"Claim {claim['claim_id'][:8]} has been created and queued for analysis.",
+    )
     return response_ok(claim, "Claim created successfully")
 
 
@@ -271,6 +278,14 @@ async def get_claim_status(claim_id: str) -> dict[str, Any]:
             "updated_at": claim["updated_at"],
         },
         "Claim status fetched successfully",
+    )
+
+
+@app.get("/api/v1/notifications/")
+async def list_notifications_endpoint(user_id: str | None = None) -> dict[str, Any]:
+    return response_ok(
+        list_notifications(user_id=user_id),
+        "Notifications fetched successfully",
     )
 
 

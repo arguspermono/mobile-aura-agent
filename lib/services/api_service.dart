@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/claim_model.dart';
+import '../models/notification_model.dart';
 import '../models/claim_status_model.dart';
 import '../models/uploaded_file_model.dart';
 
@@ -77,6 +78,17 @@ class ApiService {
     final data = _decodeEnvelope(response.body, response.statusCode) as List<dynamic>;
     return data
         .map((item) => ClaimModel.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<NotificationModel>> listNotifications({required String userId}) async {
+    final uri = Uri.parse('$baseUrl/notifications/').replace(
+      queryParameters: {'user_id': userId},
+    );
+    final response = await _client.get(uri);
+    final data = _decodeEnvelope(response.body, response.statusCode) as List<dynamic>;
+    return data
+        .map((item) => NotificationModel.fromJson(item as Map<String, dynamic>))
         .toList();
   }
 
