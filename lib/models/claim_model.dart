@@ -29,7 +29,7 @@ class ClaimModel {
 
   factory ClaimModel.fromJson(Map<String, dynamic> json) {
     return ClaimModel(
-      claimId: json['claim_id'] as String,
+      claimId: (json['id'] ?? json['claim_id'] ?? '').toString(),
       userId: json['user_id'] as String,
       orderId: json['order_id'] as String,
       claimType: json['claim_type'] as String,

@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart'; // Tambahkan ini
+import 'package:mime/mime.dart';
 
 import '../models/claim_model.dart';
 import '../models/notification_model.dart';
@@ -25,21 +27,49 @@ class ApiService {
 
   final http.Client _client;
 
+  // Future<UploadedFileModel> uploadFile({
+  //   required List<int> fileBytes,
+  //   required String filename,
+  // }) async {
+  //   final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/upload/'));
+  //   request.files.add(
+  //     http.MultipartFile.fromBytes(
+  //       'file',
+  //       fileBytes,
+  //       filename: filename,
+  //     ),
+  //   );
+  //   request.headers['accept'] = 'application/json';
+  //   final streamed = await request.send();
+  //   final rawBody = await streamed.stream.bytesToString();
+  //   final payload = _decodeEnvelope(rawBody, streamed.statusCode);
+  //   return UploadedFileModel.fromJson(payload);
+  // }
   Future<UploadedFileModel> uploadFile({
     required List<int> fileBytes,
     required String filename,
   }) async {
+
     final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/upload/'));
+
+    final mimeType = lookupMimeType(filename) ?? 'application/octet-stream';
+    final mimeSplit = mimeType.split('/');
+
     request.files.add(
       http.MultipartFile.fromBytes(
         'file',
         fileBytes,
         filename: filename,
+        contentType: MediaType(mimeSplit[0], mimeSplit[1]), // Ini kunci perbaikannya
       ),
     );
+
     request.headers['accept'] = 'application/json';
     final streamed = await request.send();
     final rawBody = await streamed.stream.bytesToString();
+
+    print('DEBUG UPLOAD RESPONSE: $rawBody'); // TAMBAHKAN INI
+
     final payload = _decodeEnvelope(rawBody, streamed.statusCode);
     return UploadedFileModel.fromJson(payload);
   }
@@ -51,6 +81,16 @@ class ApiService {
     required List<String> fileIds,
     String voiceDescription = '',
   }) async {
+    final payload = {
+      'user_id': userId,
+      'order_id': orderId,
+      'claim_type': claimType,
+      'file_ids': fileIds,
+      'voice_description': voiceDescription,
+    };
+    debugPrint('--- [SENDING CREATE CLAIM] ---');
+    debugPrint('Payload: ${jsonEncode(payload)}');
+
     final response = await _client.post(
       Uri.parse('$baseUrl/claims/'),
       headers: {'Content-Type': 'application/json'},
@@ -119,10 +159,19 @@ class ApiService {
   }
 
   dynamic _decodeEnvelope(String rawBody, int statusCode) {
-    final body = jsonDecode(rawBody) as Map<String, dynamic>;
-    if (statusCode >= 400 || body['status'] != 'ok') {
-      throw Exception(body['message'] ?? 'Request failed');
+    // 1. Tambahkan print ini untuk melihat log di terminal
+    debugPrint('HTTP Status Code: $statusCode');
+    debugPrint('HTTP Raw Body: $rawBody');
+
+    try {
+      final body = jsonDecode(rawBody) as Map<String, dynamic>;
+      if (statusCode >= 400 || body['status'] != 'ok') {
+        // 2. Tampilkan rawBody di Exception agar terlihat di UI/Log
+        throw Exception(body['message'] ?? 'Request failed. Status: $statusCode, Body: $rawBody');
+      }
+      return body['data'];
+    } catch (e) {
+      throw Exception('Format response bukan JSON. Raw: $rawBody');
     }
-    return body['data'];
   }
 }
